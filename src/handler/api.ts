@@ -22,6 +22,14 @@ export class ApiHandler {
      */
     private checkToken(token: string) {
         // Your implementation here
+        const client = IdentityProviderClient.getInstance();
+        const valid = client.validateToken(token);
+
+        if(!valid)
+            {
+                throw "{\"statusCode\":401,\"message\":\"Invalid token\"}";
+            }
+        return true;
     }
 
     /**
@@ -35,6 +43,34 @@ export class ApiHandler {
      */
     private handleRequestMachine(request: RequestMachineRequestModel): MachineResponseModel {
         // Your implementation here
+
+        const db = MachineStateTable.getInstance();
+        const cache = DataCache.getInstance();
+        const local_devices = db.listMachinesAtLocation(request.locationId);
+        const machine = local_devices.find( (m) => m.status === MachineStatus.AVAILABLE);
+
+
+
+        if(!machine)
+            {
+                return {
+                    statusCode: HttpResponseCode.NOT_FOUND,
+                    machine: undefined
+                }
+            }
+
+        db.updateMachineStatus(machine.machineId, MachineStatus.AWAITING_DROPOFF);
+        db.updateMachineJobId(machine.machineId, request.jobId)
+                
+        machine.status = MachineStatus.AWAITING_DROPOFF;
+        machine.currentJobId = request.jobId;
+
+        cache.put(machine.machineId, machine);
+        
+        return {
+            statusCode: HttpResponseCode.OK,
+            machine: machine
+        };
     }
 
     /**
@@ -45,6 +81,33 @@ export class ApiHandler {
      */
     private handleGetMachine(request: GetMachineRequestModel): MachineResponseModel {
         // Your implementation here
+
+        // const cache = DataCache.getInstance();
+        const db = MachineStateTable.getInstance();
+        let machine = this.cache.get(request.machineId);
+
+        if(!machine)
+        {
+            machine = db.getMachine(request.machineId);
+
+            if(machine)
+                {
+                    this.cache.put(request.machineId, machine);
+                }
+        }
+
+        if(!machine)
+            {
+                return{
+                    statusCode: HttpResponseCode.NOT_FOUND,
+                    machine: undefined
+                }
+            }
+
+        return {
+            statusCode: HttpResponseCode.OK,
+            machine: machine
+        };
     }
 
     /**
@@ -56,6 +119,57 @@ export class ApiHandler {
      */
     private handleStartMachine(request: StartMachineRequestModel): MachineResponseModel {
         // Your implementation here
+        const db = MachineStateTable.getInstance();
+        let machine = this.cache.get(request.machineId);
+
+        if(!machine)
+            {
+                machine = db.getMachine(request.machineId);
+                if(machine)
+                    {
+                        this.cache.put(machine.machineId, machine);
+                    }
+            }
+
+        if(!machine)
+            {
+                return{
+                    statusCode: HttpResponseCode.NOT_FOUND,
+                    machine: undefined
+                }
+            }
+
+        if(machine.status != MachineStatus.AWAITING_DROPOFF)
+            {
+                return{
+                    statusCode: HttpResponseCode.BAD_REQUEST,
+                    machine: machine
+                }
+            }
+        
+        const start_machine = SmartMachineClient.getInstance();
+
+        try
+        {
+
+            start_machine.startCycle(machine.machineId);
+
+        }catch
+        {
+            return{
+                statusCode: HttpResponseCode.HARDWARE_ERROR,
+                machine: undefined
+            }
+        }
+
+        machine.status = MachineStatus.RUNNING;
+        db.updateMachineStatus(machine.machineId, MachineStatus.RUNNING);
+        this.cache.put(machine.machineId, machine);
+
+        return {
+            statusCode: HttpResponseCode.OK,
+            machine: machine
+        };
     }
 
     /**
