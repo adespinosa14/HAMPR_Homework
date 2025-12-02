@@ -170,8 +170,10 @@ describe('ApiHandler', () => {
     });
 
     it('should handle hardware errors when starting a machine', () => {
+        const currMachine = { ...machine, status: MachineStatus.AWAITING_DROPOFF };
         const errorMachine = { ...machine, status: MachineStatus.ERROR };
-        mockMachineStateTable.getMachine.mockReturnValueOnce(machine).mockReturnValueOnce(errorMachine);
+        
+        mockMachineStateTable.getMachine.mockReturnValueOnce(currMachine).mockReturnValueOnce(errorMachine);
         mockSmartMachineClient.startCycle.mockImplementation(() => {
             throw new Error('Hardware fault');
         });

@@ -141,6 +141,10 @@ export class ApiHandler {
 
         if(machine.status != MachineStatus.AWAITING_DROPOFF)
             {
+                machine.status = MachineStatus.ERROR;
+                db.updateMachineStatus(machine.machineId, MachineStatus.ERROR);
+                this.cache.put(machine.machineId, machine);
+
                 return{
                     statusCode: HttpResponseCode.BAD_REQUEST,
                     machine: machine
@@ -151,25 +155,29 @@ export class ApiHandler {
 
         try
         {
-
             start_machine.startCycle(machine.machineId);
+                    
+            machine.status = MachineStatus.RUNNING;
+            db.updateMachineStatus(machine.machineId, MachineStatus.RUNNING);
+            this.cache.put(machine.machineId, machine);
 
+            return {
+                statusCode: HttpResponseCode.OK,
+                machine: machine
+            };
         }catch
         {
+            start_machine.forceStop(machine.machineId);
+            machine.status = MachineStatus.ERROR;
+
+            db.updateMachineStatus(machine.machineId, MachineStatus.ERROR);
+            this.cache.put(machine.machineId, machine);
+
             return{
                 statusCode: HttpResponseCode.HARDWARE_ERROR,
-                machine: undefined
+                machine: machine
             }
         }
-
-        machine.status = MachineStatus.RUNNING;
-        db.updateMachineStatus(machine.machineId, MachineStatus.RUNNING);
-        this.cache.put(machine.machineId, machine);
-
-        return {
-            statusCode: HttpResponseCode.OK,
-            machine: machine
-        };
     }
 
     /**
