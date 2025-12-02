@@ -125,19 +125,21 @@ export class ApiHandler {
         if(!machine)
             {
                 machine = db.getMachine(request.machineId);
+                
+                if(!machine)
+                    {
+                        return{
+                            statusCode: HttpResponseCode.NOT_FOUND,
+                            machine: undefined
+                        }
+                    }
+
                 if(machine)
                     {
                         this.cache.put(machine.machineId, machine);
                     }
             }
 
-        if(!machine)
-            {
-                return{
-                    statusCode: HttpResponseCode.NOT_FOUND,
-                    machine: undefined
-                }
-            }
 
         if(machine.status != MachineStatus.AWAITING_DROPOFF)
             {

@@ -170,9 +170,15 @@ describe('ApiHandler', () => {
     });
 
     it('should handle hardware errors when starting a machine', () => {
+        /* Added a variable to create the current machine. 
+          Instead of testing if we start with an error, we start with Awaiting Dropoff so we can catch the error.
+          So we added another variable of a machine that says AWAITING DROPOFF so we can catch the error to begin with.
+        */
         const currMachine = { ...machine, status: MachineStatus.AWAITING_DROPOFF };
-        const errorMachine = { ...machine, status: MachineStatus.ERROR };
         
+        //Original Code
+        const errorMachine = { ...machine, status: MachineStatus.ERROR };
+
         mockMachineStateTable.getMachine.mockReturnValueOnce(currMachine).mockReturnValueOnce(errorMachine);
         mockSmartMachineClient.startCycle.mockImplementation(() => {
             throw new Error('Hardware fault');
